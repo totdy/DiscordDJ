@@ -10,6 +10,7 @@ namespace SpotifyDiscordBot;
 public static class Program
 {
     private const string CommandPrefix = "!";
+    private const int VoiceConnectAttempts = 3;
     private static string _token = "";
 
     private static DiscordSocketClient _client = null!;
@@ -35,11 +36,26 @@ public static class Program
                 | GatewayIntents.GuildMessages
                 | GatewayIntents.GuildVoiceStates
                 | GatewayIntents.MessageContent,
+            EnableVoiceDaveEncryption = true,
         };
 
         _client = new DiscordSocketClient(config);
         _client.Log += msg => { Console.WriteLine(msg); return Task.CompletedTask; };
-        _client.MessageReceived += OnMessageReceived;
+        _client.MessageReceived += msg =>
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await OnMessageReceived(msg);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Unhandled exception in message handler: {ex}");
+                }
+            });
+            return Task.CompletedTask;
+        };
 
         await _client.LoginAsync(TokenType.Bot, _token);
         await _client.StartAsync();
@@ -98,7 +114,16 @@ public static class Program
             return;
         }
 
-        _voiceClient = await voiceChannel.ConnectAsync();
+        try
+        {
+            _voiceClient = await ConnectVoiceWithRetryAsync(voiceChannel);
+        }
+        catch (Exception ex)
+        {
+            await channel.SendMessageAsync($"Failed to connect to voice after {VoiceConnectAttempts} attempts: {ex.Message}");
+            return;
+        }
+
         _connectedChannel = voiceChannel;
         _capture = new ProcessLoopbackCapture();
 
@@ -120,6 +145,51 @@ public static class Program
         _ = Task.Run(() => StreamLoop(_streamCts.Token));
 
         await channel.SendMessageAsync($"Streaming `{processName}` into **{voiceChannel.Name}**.");
+    }
+
+    private static async Task<Discord.Audio.IAudioClient> ConnectVoiceWithRetryAsync(SocketVoiceChannel voiceChannel)
+    {
+        Exception? lastError = null;
+
+        for (var attempt = 1; attempt <= VoiceConnectAttempts; attempt++)
+        {
+            try
+            {
+                return await voiceChannel.ConnectAsync(
+                    selfDeaf: true,
+                    selfMute: false,
+                    external: false,
+                    disconnect: true);
+            }
+            catch (Exception ex) when (IsRetryableVoiceConnectError(ex))
+            {
+                lastError = ex;
+                Console.WriteLine($"Voice connect attempt {attempt}/{VoiceConnectAttempts} failed: {ex.Message}");
+
+                try
+                {
+                    await voiceChannel.DisconnectAsync();
+                }
+                catch (Exception disconnectEx)
+                {
+                    Console.WriteLine($"Voice disconnect cleanup failed: {disconnectEx.Message}");
+                }
+
+                if (attempt < VoiceConnectAttempts)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
+                }
+            }
+        }
+
+        throw lastError ?? new TimeoutException("Discord voice connection did not complete.");
+    }
+
+    private static bool IsRetryableVoiceConnectError(Exception ex)
+    {
+        return ex is TimeoutException
+            || ex is System.Net.WebSockets.WebSocketException
+            || ex.GetType().Name == "WebSocketClosedException";
     }
 
     private static async Task StreamLoop(CancellationToken ct)

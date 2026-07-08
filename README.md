@@ -11,13 +11,15 @@ install beyond the bot itself.
 - A Discord bot application + token: https://discord.com/developers/applications
 
 ## Discord.Net voice natives
-Discord.Net's voice support needs two native libraries sitting next to
-the compiled exe: `libsodium.dll` and `opus.dll`. These are **not**
-pulled in automatically by the `Discord.Net` NuGet package on all
-setups — if voice fails to initialize, grab them from:
-https://github.com/discord-net/Discord.Net/tree/dev/voice-natives
-(or wherever the current Discord.Net docs point) and place both DLLs
-in the same folder as `SpotifyDiscordBot.exe`.
+Discord.Net's voice support needs two native libraries available at
+runtime: `libsodium.dll` and `opus.dll`. This project references NuGet
+packages for the Windows x64 builds of both libraries and targets
+`win-x64`, so `dotnet build`, `dotnet run`, and `dotnet publish` copy
+them into the app output automatically.
+
+If voice fails with `DllNotFoundException` for `opus` or `libsodium`,
+run `dotnet restore` and rebuild from a normal terminal so NuGet can
+download the native packages.
 
 ## Build & run
 ```powershell
@@ -38,9 +40,9 @@ For a distributable single-file exe (what you'd actually hand to users):
 ```powershell
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
-This produces one `.exe` in `bin\Release\net8.0\win-x64\publish\` with no
-.NET runtime install required on the target machine. Remember to ship
-`libsodium.dll` / `opus.dll` alongside it.
+This produces the app in
+`bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\` with no .NET
+runtime install required on the target machine.
 
 ## Usage
 In a Discord text channel, while you're in a voice channel:
