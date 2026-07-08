@@ -18,6 +18,7 @@ public sealed class ProcessLoopbackCapture : IDisposable
     public const int TargetChannels = 2;
     public const int BytesPerSample = 2;
     private const int FrameMs = 20;
+    private const int PrebufferFrames = 5;
     public const int FrameBytes = TargetSampleRate * FrameMs / 1000 * TargetChannels * BytesPerSample; // 3840
 
     private readonly object _bufferLock = new();
@@ -182,8 +183,9 @@ public sealed class ProcessLoopbackCapture : IDisposable
 
             Buffer.BlockCopy(chunk, 0, _buffer, _bufferLen, chunk.Length);
             _bufferLen += chunk.Length;
+            Monitor.PulseAll(_bufferLock);
 
-            int maxBytes = FrameBytes * 50; // ~1s headroom
+            int maxBytes = FrameBytes * 15; // ~300ms headroom
             if (_bufferLen > maxBytes)
             {
                 int drop = _bufferLen - maxBytes;
@@ -211,6 +213,20 @@ public sealed class ProcessLoopbackCapture : IDisposable
             }
         }
         return new byte[FrameBytes]; // silence
+    }
+
+    public void WaitForPrebuffer(CancellationToken ct)
+    {
+        int targetBytes = FrameBytes * PrebufferFrames;
+
+        lock (_bufferLock)
+        {
+            while (_bufferLen < targetBytes)
+            {
+                ct.ThrowIfCancellationRequested();
+                Monitor.Wait(_bufferLock, 20);
+            }
+        }
     }
 
     public void Dispose()
