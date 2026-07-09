@@ -10,16 +10,39 @@ install beyond the bot itself.
 - .NET 8 SDK: https://dotnet.microsoft.com/download
 - A Discord bot application + token: https://discord.com/developers/applications
 
+## Discord bot setup
+In the Discord Developer Portal, create an application, add a bot, and
+copy the bot token into `.env` as `DISCORD_TOKEN=...`.
+
+Under **Bot > Privileged Gateway Intents**, enable:
+- Message Content Intent
+
+The bot does not need Presence Intent or Server Members Intent for the
+current commands.
+
+Under **OAuth2 > URL Generator**, create an invite with:
+- Scope: `bot`
+- Bot permissions: `View Channels`, `Send Messages`, `Connect`, `Speak`
+
+If the target text or voice channel has custom permission overrides,
+make sure the bot role is also allowed to view/send in the text channel
+and connect/speak in the voice channel.
+
+Keep **Bot > Requires OAuth2 Code Grant** disabled unless you have a
+separate OAuth flow. If you change invite permissions later, generate a
+fresh invite URL and re-invite the bot.
+
 ## Discord.Net voice natives
 Discord.Net's voice support needs two native libraries available at
-runtime: `libsodium.dll` and `opus.dll`. This project references NuGet
-packages for the Windows x64 builds of both libraries and targets
-`win-x64`, so `dotnet build`, `dotnet run`, and `dotnet publish` copy
-them into the app output automatically.
+runtime: `libsodium.dll` and `opus.dll`. Discord voice also requires
+DAVE encryption now, so `libdave.dll` must be available too. This
+project references NuGet packages for the Windows x64 builds of all
+three libraries and targets `win-x64`, so `dotnet build`, `dotnet run`,
+and `dotnet publish` copy them into the app output automatically.
 
-If voice fails with `DllNotFoundException` for `opus` or `libsodium`,
-run `dotnet restore` and rebuild from a normal terminal so NuGet can
-download the native packages.
+If voice fails with `DllNotFoundException` for `opus`, `libsodium`, or
+`libdave`, run `dotnet restore` and rebuild from a normal terminal so
+NuGet can download the native packages.
 
 ## Build & run
 ```powershell
