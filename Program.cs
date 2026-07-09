@@ -196,17 +196,15 @@ public static class Program
     {
         if (_voiceClient is null || _capture is null) return;
 
-        using var pcmStream = _voiceClient.CreateDirectPCMStream(AudioApplication.Music);
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(20));
-
+        using var pcmStream = _voiceClient.CreatePCMStream(AudioApplication.Music);
         try
         {
-            _capture.WaitForPrebuffer(ct);
-
-            while (await timer.WaitForNextTickAsync(ct))
+            while (!ct.IsCancellationRequested)
             {
                 byte[] frame = _capture.ReadFrame();
                 await pcmStream.WriteAsync(frame, 0, frame.Length, ct);
+                // 20ms of audio per frame -> pace writes accordingly.
+                await Task.Delay(20, ct);
             }
         }
         catch (OperationCanceledException)
