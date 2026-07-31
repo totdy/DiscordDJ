@@ -1,0 +1,18 @@
+{
+  "name": "discord-dj-macos-voice-bridge",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Discord voice/DAVE transport for the Swift macOS capture app",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "swift run DiscordDJMac"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.0",
+    "@snazzah/davey": "^0.1.7",
+    "discord.js": "^14.22.1",
+    "opusscript": "^0.1.1"
+  }
+}

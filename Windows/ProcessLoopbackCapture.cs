@@ -40,7 +40,35 @@ public sealed class ProcessLoopbackCapture : IDisposable
         if (procs.Length == 0)
             throw new InvalidOperationException($"No running process named '{processName}' found.");
 
-        return procs[0].Id;
+        // Multi-process browsers create several processes with the same image
+        // name. Process loopback includes descendants of the selected PID, so
+        // selecting an arbitrary renderer/helper can result in silence. The
+        // oldest process is normally the browser's root process and owns the
+        // tree containing the audio renderer.
+        Process? selected = null;
+        DateTime selectedStartTime = DateTime.MaxValue;
+
+        foreach (var process in procs)
+        {
+            try
+            {
+                if (process.StartTime < selectedStartTime)
+                {
+                    selected = process;
+                    selectedStartTime = process.StartTime;
+                }
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // The process may have exited or may be inaccessible while we
+                // enumerate it. Try the remaining matching processes.
+            }
+        }
+
+        if (selected is null)
+            throw new InvalidOperationException($"Running processes named '{processName}' could not be accessed.");
+
+        return selected.Id;
     }
 
     public async Task StartAsync(int processId)
