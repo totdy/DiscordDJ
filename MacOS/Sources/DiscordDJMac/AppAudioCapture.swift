@@ -77,18 +77,18 @@ final class AppAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         let newStream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try newStream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
 
-        stateLock.lock()
-        stream = newStream
-        converter = nil
-        converterInputFormat = nil
-        stateLock.unlock()
+        stateLock.withLock {
+            stream = newStream
+            converter = nil
+            converterInputFormat = nil
+        }
 
         do {
             try await newStream.startCapture()
         } catch {
-            stateLock.lock()
-            stream = nil
-            stateLock.unlock()
+            stateLock.withLock {
+                stream = nil
+            }
             throw error
         }
 
@@ -96,12 +96,13 @@ final class AppAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     func stop() async {
-        stateLock.lock()
-        let oldStream = stream
-        stream = nil
-        converter = nil
-        converterInputFormat = nil
-        stateLock.unlock()
+        let oldStream = stateLock.withLock {
+            let oldStream = stream
+            stream = nil
+            converter = nil
+            converterInputFormat = nil
+            return oldStream
+        }
 
         try? await oldStream?.stopCapture()
     }
@@ -121,8 +122,11 @@ final class AppAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
 
         do {
             try sampleBuffer.withAudioBufferList { audioBufferList, _ in
-                guard let description = sampleBuffer.formatDescription,
-                      let inputFormat = AVAudioFormat(cmAudioFormatDescription: description),
+                guard let description = sampleBuffer.formatDescription else {
+                    throw CaptureError.invalidAudioFormat
+                }
+                let inputFormat = AVAudioFormat(cmAudioFormatDescription: description)
+                guard
                       let inputBuffer = AVAudioPCMBuffer(
                         pcmFormat: inputFormat,
                         bufferListNoCopy: audioBufferList.unsafePointer

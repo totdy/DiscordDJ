@@ -2,5 +2,6 @@
 bin/
 obj/
 .build/
+.swift-cache/
 node_modules/
 .DS_Store
