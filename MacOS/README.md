@@ -12,16 +12,19 @@ it to Discord through the bundled voice/DAVE bridge.
 - A Discord bot with Message Content Intent enabled and permission to view,
   send, connect, and speak
 
-## Install and run
+## Build a native app
 
 ```bash
 cd MacOS
 pnpm install
-export DISCORD_TOKEN="your token"
-swift run DiscordDJMac
+./scripts/build-app.sh
 ```
 
-`npm install` also works if you do not use pnpm.
+Open `dist/DiscordDJ.app` by double-clicking it. The finished app includes its
+own Node runtime and Discord bridge; the Mac running it does not need Terminal,
+Node, or pnpm after the build. On the first launch, macOS may require approval
+in System Settings > Privacy & Security because this local build is ad-hoc
+signed.
 
 The first capture prompts for **Screen & System Audio Recording** permission.
 Allow it in System Settings > Privacy & Security, then restart the program if
@@ -29,22 +32,22 @@ macOS requests a restart.
 
 ## Commands
 
-Join a voice channel and send one of these in Discord:
+Choose a running app from DiscordDJ’s menu-bar icon. Then, from any computer,
+join a voice channel and send:
 
 ```text
-!stream DuckDuckGo
-!stream Spotify
-!stream com.apple.Music
-!stopstream
+!here
+!stop
 ```
 
-The argument can be an application name or bundle identifier. It defaults to
-`DuckDuckGo` when omitted. Start playback before running `!stream` so the app
-appears in ScreenCaptureKit's list.
+`!here` makes the bot join the sender’s voice channel and stream the app selected
+on the capture Mac. Anyone in a server where the bot is present can use these
+commands.
 
 ## Architecture
 
-- `Sources/DiscordDJMac`: Swift application capture and PCM conversion
+- `Sources/DiscordDJMac`: native menu-bar app, secure token storage, capture,
+  and PCM conversion
 - `Bridge/index.js`: Discord gateway, voice, Opus, encryption, and DAVE
 
 The bridge is deliberately isolated because Discord's voice protocol evolves

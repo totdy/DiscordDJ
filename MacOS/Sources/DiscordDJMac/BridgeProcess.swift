@@ -20,6 +20,9 @@ enum BridgeError: LocalizedError {
 struct BridgeCommand: Decodable {
     let action: String
     let application: String?
+    let state: String?
+    let message: String?
+    let channel: String?
 }
 
 /// Runs the Discord voice transport and exposes its stdin as a PCM sink.
@@ -32,17 +35,25 @@ final class BridgeProcess {
     private var bufferedControlData = Data()
     private var onCommand: ((BridgeCommand) -> Void)?
 
-    init() throws {
+    init(token: String, captureSource: String?) throws {
         pcmInput = inputPipe.fileHandleForWriting
 
         let environment = ProcessInfo.processInfo.environment
         let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        let script = currentDirectory.appendingPathComponent("Bridge/index.js")
+        let resourceDirectory = Bundle.main.resourceURL
+        let bundledScript = resourceDirectory?.appendingPathComponent("Bridge/index.js")
+        let developmentScript = currentDirectory.appendingPathComponent("Bridge/index.js")
+        let script = bundledScript.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            ?? developmentScript
         guard FileManager.default.fileExists(atPath: script.path) else {
             throw BridgeError.scriptNotFound
         }
 
-        if let configuredNode = environment["NODE_BINARY"], !configuredNode.isEmpty {
+        let bundledNode = resourceDirectory?.appendingPathComponent("Runtime/node").path
+        if let bundledNode, FileManager.default.isExecutableFile(atPath: bundledNode) {
+            process.executableURL = URL(fileURLWithPath: bundledNode)
+            process.arguments = [script.path]
+        } else if let configuredNode = environment["NODE_BINARY"], !configuredNode.isEmpty {
             guard FileManager.default.isExecutableFile(atPath: configuredNode) else {
                 throw BridgeError.nodeNotFound
             }
@@ -53,7 +64,11 @@ final class BridgeProcess {
             process.arguments = ["node", script.path]
         }
 
-        process.currentDirectoryURL = currentDirectory
+        process.environment = environment.merging([
+            "DISCORD_TOKEN": token,
+            "CAPTURE_SOURCE": captureSource ?? "",
+        ]) { _, new in new }
+        process.currentDirectoryURL = script.deletingLastPathComponent()
         process.standardInput = inputPipe
         process.standardOutput = controlPipe
         process.standardError = FileHandle.standardError
@@ -70,7 +85,6 @@ final class BridgeProcess {
                     Data("Voice bridge exited with status \(process.terminationStatus).\n".utf8)
                 )
             }
-            CFRunLoopStop(CFRunLoopGetMain())
         }
         try process.run()
     }

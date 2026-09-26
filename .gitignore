@@ -4,4 +4,5 @@ obj/
 .build/
 .swift-cache/
 node_modules/
+dist/
 .DS_Store
