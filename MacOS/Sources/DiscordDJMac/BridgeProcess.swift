@@ -96,8 +96,22 @@ final class BridgeProcess {
         }
     }
 
+    func waitUntilExit() async {
+        guard process.isRunning else { return }
+        await withCheckedContinuation { continuation in
+            let existingHandler = process.terminationHandler
+            process.terminationHandler = { proc in
+                existingHandler?(proc)
+                continuation.resume()
+            }
+        }
+    }
+
     private func consume(_ data: Data) {
-        guard !data.isEmpty else { return }
+        guard !data.isEmpty else {
+            controlPipe.fileHandleForReading.readabilityHandler = nil
+            return
+        }
         bufferedControlData.append(data)
 
         while let newline = bufferedControlData.firstIndex(of: 0x0A) {

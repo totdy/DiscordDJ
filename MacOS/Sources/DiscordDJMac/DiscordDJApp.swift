@@ -123,17 +123,25 @@ private final class PopoverController: NSViewController {
         guard isViewLoaded else { return }
         statusLabel.stringValue = state.bridgeStatus
         sourceButton.removeAllItems()
-        sourceButton.addItem(withTitle: "Choose an app…")
-        state.applications.forEach { sourceButton.addItem(withTitle: $0.name) }
-        if let selected = state.selectedSource, let index = state.applications.firstIndex(of: selected) {
-            sourceButton.selectItem(at: index + 1)
-        } else { sourceButton.selectItem(at: 0) }
+        let placeholder = NSMenuItem(title: "Choose an app…", action: nil, keyEquivalent: "")
+        placeholder.representedObject = nil
+        sourceButton.menu?.addItem(placeholder)
+        for app in state.applications {
+            let item = NSMenuItem(title: app.name, action: nil, keyEquivalent: "")
+            item.representedObject = app
+            sourceButton.menu?.addItem(item)
+        }
+        if let selected = state.selectedSource,
+        let matchingItem = sourceButton.menu?.items.first(where: { ($0.representedObject as? CaptureApp) == selected }) {
+            sourceButton.select(matchingItem)
+        } else {
+            sourceButton.selectItem(at: 0)
+        }
         stopButton.isEnabled = state.isStreaming
     }
     @objc private func sourceChanged() {
-        let index = sourceButton.indexOfSelectedItem - 1
-        guard state.applications.indices.contains(index) else { return }
-        state.selectSource(state.applications[index])
+        guard let app = sourceButton.selectedItem?.representedObject as? CaptureApp else { return }
+        state.selectSource(app)
     }
     @objc private func refreshApps() { state.refreshApplications() }
     @objc private func stopStreaming() { state.stopStreaming() }

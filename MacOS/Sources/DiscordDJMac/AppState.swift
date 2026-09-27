@@ -47,6 +47,7 @@ final class AppState {
 
     func selectSource(_ source: CaptureApp) {
         selectedSource = source
+        FileHandle.standardError.write(Data("selectSource called with: \(source.name) / \(source.bundleIdentifier)\n".utf8))
         UserDefaults.standard.set(source.bundleIdentifier, forKey: sourceKey)
         requestCapturePermissionIfNeeded()
         reconnectBridge()
@@ -105,9 +106,11 @@ final class AppState {
     }
 
     private func reconnectBridge() {
-        bridge?.terminate()
+        let oldBridge = bridge
         bridge = nil
         Task { [weak self] in
+            oldBridge?.terminate()
+            await oldBridge?.waitUntilExit()
             await self?.endCapture()
             self?.connectBridge()
         }
@@ -136,6 +139,7 @@ final class AppState {
                 bridgeStatus = "Select an app before streaming"
                 return
             }
+            FileHandle.standardError.write(Data("About to capture selectedSource: \(selectedSource.name) / \(selectedSource.bundleIdentifier)\n".utf8))
             do {
                 let newCapture = AppAudioCapture(output: bridge.pcmInput)
                 capture = newCapture

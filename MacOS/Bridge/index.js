@@ -30,6 +30,17 @@ const client = new Client({
 const player = createAudioPlayer({
   behaviors: { noSubscriber: NoSubscriberBehavior.Play },
 });
+
+player.on("error", (error) => {
+  console.error(error);
+  control("stop");
+  control("status", { state: "error", message: error.message });
+  pcmStream?.destroy();
+  pcmStream = null;
+  connection?.destroy();
+  connection = null;
+});
+
 let connection = null;
 let pcmStream = null;
 

@@ -55,6 +55,8 @@ final class AppAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }) else {
             throw CaptureError.appNotFound(requestedName)
         }
+        
+        FileHandle.standardError.write(Data("Matched app for capture: \(app.applicationName) / \(app.bundleIdentifier)\n".utf8))
 
         guard let display = content.displays.first else {
             throw CaptureError.noDisplay
