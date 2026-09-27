@@ -7,12 +7,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var controller: PopoverController!
 
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         controller = PopoverController(state: state, showSettings: { [weak self] in self?.showSettings() })
         popover.contentViewController = controller
         popover.behavior = .transient
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        NSLog("DiscordDJ: statusItem button = \(String(describing: statusItem.button))")
+        statusItem.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "DiscordDJ")
+        statusItem.button?.imagePosition = .imageOnly
+        statusItem.isVisible = true
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
         state.onChange = { [weak self] in self?.refresh() }
